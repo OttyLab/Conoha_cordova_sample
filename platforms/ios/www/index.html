@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+
+<script>
+//
+// Access information
+//
+var user_id = "";
+var password = "";
+var tenant_id = "";
+
+var user_id = 'gncu22800859';
+var password = "Howasama128";
+var tenant_id = "18e4df8de2f44220bc55c74ebf81eef5";
+//
+// Region
+//
+var regions = {
+	"Tokyo"     : "tyo1",
+	"Singapore" : "sin1",
+	"US"        : "sjc1"
+};
+
+//
+// token API information
+//
+var getTokenUrl = function(region) {
+	return "https://identity." + region + ".conoha.io/v2.0/tokens";
+} 
+var token_data = {
+	"auth": {
+		"passwordCredentials": {
+			"username": user_id,
+			"password": password,
+	},
+	"tenantId": tenant_id
+	}
+};
+var token_type = "POST";
+var tokenOnSuccess = function(data) {
+	window.localStorage["token_" + this] = data.access.token.id;
+}
+
+
+//
+// servers detail API information
+//
+var getServersDetailUrl = function (region){ 
+	return "https://compute." + region + ".conoha.io/v2/" + tenant_id + "/servers/detail";
+};
+var servers_detail_data = {};
+var servers_detail_type = "GET";
+var serversDetailOnSuccess = function(data) {
+	for (var i = 0; i < data.servers.length; i++) {
+		var tr = $('<tr>');
+		var td_index = $('<td>').text(i);
+		var td_status = $('<td>').text(data.servers[i].status);
+		var td_name = $('<td>').text(data.servers[i].metadata.instance_name_tag);
+		var td_region = $('<td>').text(this);
+		tr.append(td_index).append(td_status).append(td_name).append(td_region);
+		$('#server_table').append(tr);
+	}
+}
+
+//
+// JSON access
+//
+var access = function(url, data, type, onSuccess, key) {
+		return $.ajax({
+			url: url,
+			data: JSON.stringify(data),
+			type: type,
+			headers: {
+				'X-Auth-Token' : window.localStorage["token_" + key]
+			},
+			context: key,
+			success: onSuccess,
+			error: function() {
+				console.log('$.ajax error. remove token in local storage.');
+				window.localStorage.removeItem("token_" + key);
+			}
+		});
+}
+
+//
+// Run on load
+//
+$(function(){
+	for (key in regions) {
+		if (window.localStorage["token_" + key] === undefined) {
+			access(getTokenUrl(regions[key]), token_data, token_type, tokenOnSuccess, key).done(function(){
+				access(getServersDetailUrl(regions[this]), servers_detail_data, servers_detail_type, serversDetailOnSuccess, this);	
+			});
+		} else {
+			access(getServersDetailUrl(regions[key]), servers_detail_data, servers_detail_type, serversDetailOnSuccess, key);	
+		}
+	}
+});
+</script>
+</head>
+<body>
+<h2>ConoHa API sample</h2>
+<table id="server_table">
+</table>
+</body>
+</html>
