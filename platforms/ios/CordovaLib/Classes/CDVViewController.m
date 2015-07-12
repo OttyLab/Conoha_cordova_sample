@@ -619,6 +619,13 @@
     CGRect webViewBounds = self.view.bounds;
 
     webViewBounds.origin = self.view.bounds.origin;
+    
+    //Workaround to the status bar problem
+    NSString* version  = [[UIDevice currentDevice] systemVersion];
+    if ([version floatValue] > 7.0) {
+        webViewBounds.origin.y += 20;
+        webViewBounds.size.height -= 20;
+    }
 
     self.webView = [self newCordovaViewWithFrame:webViewBounds];
     self.webView.autoresizingMask = (UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight);
