@@ -43,6 +43,9 @@ var token_type = "POST";
 var tokenOnSuccess = function(data) {
 	window.localStorage["token_" + this] = data.access.token.id;
 }
+var tokenOnError =  function(XMLHttpRequest, textStatus, errorThrown) {
+	console.log("$.ajax error. " + textStatus);
+}
 
 
 //
@@ -55,20 +58,74 @@ var servers_detail_data = {};
 var servers_detail_type = "GET";
 var serversDetailOnSuccess = function(data) {
 	for (var i = 0; i < data.servers.length; i++) {
-		var tr = $('<tr>').attr('class', 'server_item');;
+		var tr = $('<tr>').attr('class', 'server_item').attr('server_id', data.servers[i].id);
 		var td_index = $('<td>').text(i);
 		var td_status = $('<td>').text(data.servers[i].status);
 		var td_name = $('<td>').text(data.servers[i].metadata.instance_name_tag);
 		var td_region = $('<td>').text(this);
 		tr.append(td_index).append(td_status).append(td_name).append(td_region);
 		$('#server_table').append(tr);
+
+		tr.click(function(){
+			var server_id = $(this).attr('server_id');
+			var status = $($(this).children()[1]).text();
+			var key = $($(this).children()[3]).text();
+			switch(status) {
+				case "ACTIVE":
+					access(getStopUrl(regions[key], server_id), stop_data, stop_type, stopOnSuccess, stopOnError, key);	
+				break;
+				case "SHUTOFF":
+					access(getStartUrl(regions[key], server_id), start_data, start_type, startOnSuccess, startOnError, key);	
+				break;
+				default:
+				break;
+			}
+		});
 	}
+}
+var serversDetailOnError =  function(XMLHttpRequest, textStatus, errorThrown) {
+	console.log("$.ajax error. " + textStatus);
+	console.log("removing token in local storage.");
+	window.localStorage.removeItem("token_" + key);
+}
+
+
+//
+// start API information
+//
+var getStartUrl = function (region, server_id){ 
+	return "https://compute." + region + ".conoha.io/v2/" + tenant_id + "/servers/" + server_id + "/action";
+};
+var start_data = { "os-start": null };
+var start_type = "POST";
+var startOnSuccess = function(data) {
+	console.log(data);
+}
+var startOnError =  function(XMLHttpRequest, textStatus, errorThrown) {
+		var status = XMLHttpRequest.status;
+		console.log(status);
+}
+
+//
+// stop API information
+//
+var getStopUrl = function (region, server_id){ 
+	return "https://compute." + region + ".conoha.io/v2/" + tenant_id + "/servers/" + server_id + "/action";
+};
+var stop_data = { "os-stop": null };
+var stop_type = "POST";
+var stopOnSuccess = function(data) {
+	console.log(data);
+}
+var stopOnError =  function(XMLHttpRequest, textStatus, errorThrown) {
+		var status = XMLHttpRequest.status;
+		console.log(status);
 }
 
 //
 // JSON access
 //
-var access = function(url, data, type, onSuccess, key) {
+var access = function(url, data, type, onSuccess, onError, key) {
 		return $.ajax({
 			url: url,
 			data: JSON.stringify(data),
@@ -78,10 +135,7 @@ var access = function(url, data, type, onSuccess, key) {
 			},
 			context: key,
 			success: onSuccess,
-			error: function() {
-				console.log('$.ajax error. remove token in local storage.');
-				window.localStorage.removeItem("token_" + key);
-			}
+			error: onError
 		});
 }
 
@@ -124,11 +178,11 @@ $(function(){
 
 		for (key in regions) {
 			if (window.localStorage["token_" + key] === undefined) {
-				access(getTokenUrl(regions[key]), getTokenData(), token_type, tokenOnSuccess, key).done(function(){
-					access(getServersDetailUrl(regions[this]), servers_detail_data, servers_detail_type, serversDetailOnSuccess, this);	
+				access(getTokenUrl(regions[key]), getTokenData(), token_type, tokenOnSuccess, tokenOnError, key).done(function(){
+					access(getServersDetailUrl(regions[this]), servers_detail_data, servers_detail_type, serversDetailOnSuccess, serversDetailOnError, this);	
 				});
 			} else {
-				access(getServersDetailUrl(regions[key]), servers_detail_data, servers_detail_type, serversDetailOnSuccess, key);	
+				access(getServersDetailUrl(regions[key]), servers_detail_data, servers_detail_type, serversDetailOnSuccess, serversDetailOnError, key);	
 			}
 		}
 	}
